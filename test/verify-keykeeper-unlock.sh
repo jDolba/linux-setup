@@ -28,6 +28,14 @@ test ! -r "$key"
 expect_failure() { if "$@" >/tmp/key-keeper-test-output 2>&1; then exit 1; fi; }
 expect_failure /home/developer/.local/bin/key-keeper-unlock test-loader-key
 
+printf '\n\n' | /home/developer/.local/bin/key-keeper-keygen test-generated-key 'developer test key'
+test ! -e "$HOME/.ssh/test-generated-key"
+test -f "$HOME/.ssh/test-generated-key.pub"
+test "$(stat -c '%U:%G:%a' "$HOME/.ssh/test-generated-key.pub")" == 'developer:developer:644'
+test ! -r /home/keyKeeper/.ssh/keys/test-generated-key
+ssh-keygen -lf "$HOME/.ssh/test-generated-key.pub" >/dev/null
+expect_failure /home/developer/.local/bin/key-keeper-keygen test-generated-key
+
 ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/unrelated"
 ssh-agent bash -s <<'AGENT'
 set -Eeuo pipefail
@@ -77,5 +85,7 @@ DEVELOPER
 
 [[ "$(stat -c '%U:%G:%a' "$key_path")" == "$before_metadata" ]] || fail 'Unlock changed private-key metadata'
 [[ ! -e /home/developer/.ssh/test-loader-key ]] || fail 'Unlock copied a private key into the user home'
+[[ "$(stat -c '%U:%G:%a' /home/keyKeeper/.ssh/keys/test-generated-key)" == 'keyKeeper:keyKeeper:600' ]] || fail 'Generated private key has unsafe metadata'
+[[ ! -e /home/developer/.ssh/test-generated-key ]] || fail 'Key generation copied a private key into the user home'
 
 printf 'keyKeeper unlock verification passed.\n'

@@ -1,8 +1,11 @@
 # keyKeeper
 
 `keyKeeper` is secure storage only. Bootstrap creates its mode-`0700` home,
-`.ssh`, and `.ssh/keys` directories. Private keys are manually provisioned as
-`keyKeeper:keyKeeper`, normally mode `0600`, and never enter this repository.
+`.ssh`, and `.ssh/keys` directories. `key-keeper-keygen KEY-NAME [COMMENT]`
+generates an Ed25519 private key directly in that protected storage and places
+only the public key at `~/.ssh/KEY-NAME.pub` for the invoking user. It uses the
+standard `ssh-keygen` passphrase prompt; private keys never enter this
+repository or a user-owned directory.
 
 `key-keeper-unlock KEY-NAME [MINUTES]` performs a manually authorised, fixed
 sudo operation. It opens only a validated keyKeeper key, adds it to the

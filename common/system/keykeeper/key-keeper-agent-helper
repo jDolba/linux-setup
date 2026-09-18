@@ -15,10 +15,17 @@ invoking_uid="$SUDO_UID"
 invoking_passwd="$(getent passwd "$invoking_uid")"
 [[ -n "$invoking_passwd" ]] || die 'Unable to determine invoking user.'
 invoking_gid="$(cut -d: -f4 <<<"$invoking_passwd")"
+invoking_home="$(cut -d: -f6 <<<"$invoking_passwd")"
+[[ -n "$invoking_home" && "$invoking_home" == /* ]] || die 'Unable to determine invoking user home directory.'
 
 operation="${1:-}"
-[[ "$operation" == unlock || "$operation" == lock ]] || die 'Invalid helper operation.'
+[[ "$operation" == generate || "$operation" == unlock || "$operation" == lock ]] || die 'Invalid helper operation.'
 case "$operation" in
+    generate)
+        [[ $# -eq 3 ]] || die 'Invalid helper invocation.'
+        name="$2"
+        comment="$3"
+        ;;
     unlock)
         [[ $# -eq 4 ]] || die 'Invalid helper invocation.'
         name="$2"
@@ -31,12 +38,15 @@ case "$operation" in
         agent_socket="$3"
         ;;
 esac
-[[ -n "$agent_socket" && -S "$agent_socket" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
-[[ "$(stat -c '%u' "$agent_socket")" == "$invoking_uid" ]] || die 'SSH agent does not belong to the invoking user.'
 
 run_as_invoking_user() {
     setpriv --reuid "$invoking_uid" --regid "$invoking_gid" --init-groups \
         env "SSH_AUTH_SOCK=$agent_socket" "$@"
+}
+
+run_as_keykeeper() {
+    setpriv --reuid "$KEYKEEPER_USER" --regid "$KEYKEEPER_USER" --init-groups \
+        env HOME="/home/$KEYKEEPER_USER" USER="$KEYKEEPER_USER" LOGNAME="$KEYKEEPER_USER" "$@"
 }
 
 agent_is_usable() {
@@ -47,8 +57,6 @@ agent_is_usable() {
     set -e
     [[ "$status" -eq 0 || "$status" -eq 1 ]]
 }
-
-agent_is_usable || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
 
 valid_name() {
     [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
@@ -63,7 +71,33 @@ lock_one() {
 public_path_for() { printf '%s/%s.pub' "$PUBLIC_DIRECTORY" "$1"; }
 
 case "$operation" in
+    generate)
+        valid_name "$name" || die 'Invalid key name.'
+        [[ "$name" != *..* ]] || die 'Invalid key name.'
+        [[ "$comment" != *$'\n'* && "$comment" != *$'\r'* ]] || die 'Invalid key comment.'
+
+        key_path="$KEY_DIRECTORY/$name"
+        key_public_path="$key_path.pub"
+        user_public_path="$invoking_home/.ssh/$name.pub"
+        [[ ! -e "$key_path" && ! -L "$key_path" ]] || die "Key '$name' already exists in keyKeeper."
+        [[ ! -e "$key_public_path" && ! -L "$key_public_path" ]] || die "Public key '$name' already exists in keyKeeper."
+        [[ ! -e "$user_public_path" && ! -L "$user_public_path" ]] || die "Public key already exists: $user_public_path"
+        [[ -d "$KEY_DIRECTORY" && ! -L "$KEY_DIRECTORY" ]] || die 'keyKeeper key directory is unavailable.'
+        [[ "$(stat -c '%U:%G:%a' "$KEY_DIRECTORY")" == "$KEYKEEPER_USER:$KEYKEEPER_USER:700" ]] || die 'keyKeeper key directory has unsafe ownership or permissions.'
+        [[ -d "$invoking_home/.ssh" && ! -L "$invoking_home/.ssh" ]] || die 'Invoking user SSH directory is unavailable.'
+        [[ "$(stat -c '%u' "$invoking_home/.ssh")" == "$invoking_uid" ]] || die 'Invoking user SSH directory has unsafe ownership.'
+
+        run_as_keykeeper /usr/bin/ssh-keygen -t ed25519 -f "$key_path" -C "$comment"
+        [[ -f "$key_path" && ! -L "$key_path" ]] || die "Key '$name' was not created."
+        [[ "$(stat -c '%U:%G:%a' "$key_path")" == "$KEYKEEPER_USER:$KEYKEEPER_USER:600" ]] || die "Key '$name' has unsafe ownership or permissions."
+        [[ -f "$key_public_path" && ! -L "$key_public_path" ]] || die "Public key '$name' was not created."
+        install -m 0644 -o "$invoking_uid" -g "$invoking_gid" "$key_public_path" "$user_public_path"
+        printf "Created keyKeeper SSH key '%s'. Public key: %s\n" "$name" "$user_public_path"
+        ;;
     unlock)
+        [[ -n "$agent_socket" && -S "$agent_socket" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+        [[ "$(stat -c '%u' "$agent_socket")" == "$invoking_uid" ]] || die 'SSH agent does not belong to the invoking user.'
+        agent_is_usable || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
         valid_name "$name" || die 'Invalid key name.'
         [[ "$name" != *..* ]] || die 'Invalid key name.'
         [[ "$minutes" =~ ^[1-9][0-9]*$ ]] || die 'Minutes must be a positive integer.'
@@ -92,6 +126,9 @@ case "$operation" in
         printf "SSH key '%s' unlocked for %s minutes.\n%s\n" "$name" "$minutes" "$fingerprint"
         ;;
     lock)
+        [[ -n "$agent_socket" && -S "$agent_socket" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+        [[ "$(stat -c '%u' "$agent_socket")" == "$invoking_uid" ]] || die 'SSH agent does not belong to the invoking user.'
+        agent_is_usable || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
         if [[ "$name" == --all ]]; then
             [[ -d "$PUBLIC_DIRECTORY" ]] || { printf 'No keyKeeper identities are recorded for this user.\n'; exit 0; }
             shopt -s nullglob

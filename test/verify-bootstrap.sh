@@ -27,6 +27,7 @@ assert_link "$developer_home/.ssh/config" "/repo/profiles/$profile/config/ssh/co
 assert_link "$developer_home/.tmux.conf" /repo/common/config/tmux/tmux.conf
 assert_link "$developer_home/.local/bin/key-keeper-unlock" /repo/common/bin/key-keeper-unlock
 assert_link "$developer_home/.local/bin/key-keeper-lock" /repo/common/bin/key-keeper-lock
+assert_link "$developer_home/.local/bin/key-keeper-keygen" /repo/common/bin/key-keeper-keygen
 [[ -x /usr/local/libexec/key-keeper-agent-helper ]] || fail 'keyKeeper helper was not installed'
 [[ -f /etc/sudoers.d/key-keeper-agent-developer ]] || fail 'keyKeeper sudo policy was not installed'
 runuser -u developer -- ssh -G xemel.srv.omnicado.com | grep -Fx 'identityfile ~/.ssh/omnicado_xemel.pub' >/dev/null \

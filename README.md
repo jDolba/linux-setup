@@ -42,7 +42,7 @@ make test-bootstrap PROFILE=laptop
 
 ## Security model
 
-Coding agents and everyday development run as the normal user. Sensitive SSH private keys belong only to `keyKeeper`, whose home, `.ssh`, and `.ssh/keys` directories are mode `0700`. Bootstrap creates the account structure but never creates, copies, or versions private keys. Keys are manually provisioned as `keyKeeper:keyKeeper`, normally mode `0600`.
+Coding agents and everyday development run as the normal user. Sensitive SSH private keys belong only to `keyKeeper`, whose home, `.ssh`, and `.ssh/keys` directories are mode `0700`. Bootstrap installs the account structure and helper but never creates, copies, or versions keys itself. Use `key-keeper-keygen KEY-NAME [COMMENT]` to generate a key explicitly; its private half is created as `keyKeeper:keyKeeper`, normally mode `0600`, while only the public key is placed in `~/.ssh`.
 
 The identity lifecycle is deliberately brief:
 

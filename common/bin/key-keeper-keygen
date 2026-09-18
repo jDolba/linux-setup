@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Generate an SSH key directly in keyKeeper storage and expose only its public key.
+set -Eeuo pipefail
+
+readonly HELPER=/usr/local/libexec/key-keeper-agent-helper
+
+usage() { printf 'Usage: key-keeper-keygen KEY-NAME [COMMENT]\n' >&2; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+key_name="${1:-}"
+comment="${2:-$key_name}"
+[[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
+[[ "$key_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die 'Key name must contain only letters, numbers, dot, dash, or underscore.'
+[[ "$comment" != *$'\n'* && "$comment" != *$'\r'* ]] || die 'Comment must be a single line.'
+
+exec sudo -- "$HELPER" generate "$key_name" "$comment"
