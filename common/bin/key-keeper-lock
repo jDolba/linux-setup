@@ -6,12 +6,17 @@ readonly HELPER=/usr/local/libexec/key-keeper-agent-helper
 
 usage() { printf 'Usage: key-keeper-lock KEY-NAME | --all\n' >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+select_shared_agent() {
+    local gcr_socket="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/gcr/ssh"
+    [[ -S "$gcr_socket" ]] && SSH_AUTH_SOCK="$gcr_socket"
+    [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+}
 
 argument="${1:-}"
 [[ $# -eq 1 ]] || { usage; exit 2; }
 if [[ "$argument" != --all ]]; then
     [[ "$argument" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die 'Key name must contain only letters, numbers, dot, dash, or underscore.'
 fi
-[[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+select_shared_agent
 
 exec sudo -- "$HELPER" lock "$argument" "$SSH_AUTH_SOCK"

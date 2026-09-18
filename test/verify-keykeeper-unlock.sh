@@ -32,27 +32,38 @@ ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/unrelated"
 ssh-agent bash -s <<'AGENT'
 set -Eeuo pipefail
 expect_failure() { if "$@" >/tmp/key-keeper-test-output 2>&1; then exit 1; fi; }
+shared_agent="$SSH_AUTH_SOCK"
+runtime_directory="$(mktemp -d)"
+trap 'rm -rf "$runtime_directory"' EXIT
+mkdir -p "$runtime_directory/gcr"
+ln -s "$shared_agent" "$runtime_directory/gcr/ssh"
+
+XDG_RUNTIME_DIR="$runtime_directory" SHARED_AGENT="$shared_agent" ssh-agent bash -s <<'WORKER'
+set -Eeuo pipefail
+expect_failure() { if "$@" >/tmp/key-keeper-test-output 2>&1; then exit 1; fi; }
 ssh-add "$HOME/.ssh/unrelated" >/dev/null
 unrelated="$(ssh-add -l | awk 'NR == 1 { print $2 }')"
 
 default_output="$(/home/developer/.local/bin/key-keeper-unlock test-loader-key 2>&1)"
 grep -F 'unlocked for 5 minutes' <<<"$default_output"
 grep -F 'Lifetime set to 300 seconds' <<<"$default_output"
-test "$(ssh-add -l | wc -l)" -eq 2
+test "$(ssh-add -l | wc -l)" -eq 1
+SSH_AUTH_SOCK="$SHARED_AGENT" ssh-add -l | grep -v -F "$unrelated" >/dev/null
 
 explicit_output="$(/home/developer/.local/bin/key-keeper-unlock test-loader-key 10 2>&1)"
 grep -F 'unlocked for 10 minutes' <<<"$explicit_output"
 grep -F 'Lifetime set to 600 seconds' <<<"$explicit_output"
-test "$(ssh-add -l | wc -l)" -eq 2
+test "$(ssh-add -l | wc -l)" -eq 1
+test "$(SSH_AUTH_SOCK="$SHARED_AGENT" ssh-add -l | wc -l)" -eq 1
 ssh-add -l | grep -F "$unrelated" >/dev/null
 
 /home/developer/.local/bin/key-keeper-lock test-loader-key
-test "$(ssh-add -l | wc -l)" -eq 1
+if SSH_AUTH_SOCK="$SHARED_AGENT" ssh-add -l >/dev/null 2>&1; then exit 1; fi
 ssh-add -l | grep -F "$unrelated" >/dev/null
 
 /home/developer/.local/bin/key-keeper-unlock test-loader-key 1 >/dev/null
 /home/developer/.local/bin/key-keeper-lock --all
-test "$(ssh-add -l | wc -l)" -eq 1
+if SSH_AUTH_SOCK="$SHARED_AGENT" ssh-add -l >/dev/null 2>&1; then exit 1; fi
 ssh-add -l | grep -F "$unrelated" >/dev/null
 
 expect_failure /home/developer/.local/bin/key-keeper-unlock missing-key 10
@@ -60,6 +71,7 @@ expect_failure /home/developer/.local/bin/key-keeper-unlock ../../etc/passwd 10
 expect_failure /home/developer/.local/bin/key-keeper-unlock test-loader-key foo
 expect_failure /home/developer/.local/bin/key-keeper-unlock test-loader-key 0
 expect_failure /home/developer/.local/bin/key-keeper-unlock test-loader-key -10
+WORKER
 AGENT
 DEVELOPER
 
