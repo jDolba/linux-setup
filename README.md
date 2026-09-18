@@ -42,11 +42,26 @@ make test-bootstrap PROFILE=laptop
 
 ## Security model
 
-Coding agents and everyday development run as the normal user. Sensitive SSH private keys belong only to `keyKeeper`, whose home and `.ssh` directory are mode `0700`. Bootstrap creates the account structure but never creates, copies, or versions keys. Host-specific identities belong in private untracked files; see `common/config/ssh/config.example` for the explicit-identity pattern.
+Coding agents and everyday development run as the normal user. Sensitive SSH private keys belong only to `keyKeeper`, whose home, `.ssh`, and `.ssh/keys` directories are mode `0700`. Bootstrap creates the account structure but never creates, copies, or versions private keys. Keys are manually provisioned as `keyKeeper:keyKeeper`, normally mode `0600`.
 
-Run `keykeeper-load-key <key-name> [minutes]` to add `/home/keyKeeper/.ssh/<key-name>` to the current user's existing SSH agent for a limited time; the default is five minutes and the maximum is 1,440. The helper uses normal sudo authentication, creates only a public-key companion under `~/.ssh/key-keeper-identities/`, and streams the private key directly into `ssh-add` without writing it beneath the normal user's home. After expiry, SSH cannot authenticate with that identity unless it is loaded again.
+The identity lifecycle is deliberately brief:
 
-`keykeeper-ssh` is an explicit helper that invokes SSH as `keyKeeper` through normal sudo authentication. There is no passwordless sudo policy or broad home-directory sharing. Never commit credentials, private keys, tokens, certificates, or real secret values.
+```text
+LOCKED: keyKeeper owns the private key; the normal user cannot read or use it.
+    key-keeper-unlock hetzner-prod 10
+UNLOCKED FOR 10 MINUTES: the key remains unreadable, but is usable through the
+normal user's existing ssh-agent.
+    native ssh-agent expiry
+LOCKED
+```
+
+Run `key-keeper-unlock KEY-NAME [MINUTES]`; the default is five minutes and the maximum is 1,440. The command asks sudo for an explicit privileged transition, validates the key name, and uses `ssh-add -t` with the selected user's existing `SSH_AUTH_SOCK`. It never changes private-key ownership or permissions, copies it into the user home, or emits its contents. A fixed root-owned helper has no shell or arbitrary-command mode as `keyKeeper`.
+
+Use `key-keeper-lock KEY-NAME` to remove one managed identity early, or `key-keeper-lock --all` to remove all managed identities while leaving unrelated agent identities alone. Root-managed public keys are recorded under `/var/lib/key-keeper/public/` so SSH host aliases can select the temporary agent identity without giving the normal user access to the private key.
+
+Sensitive identities are unavailable while locked. Running `key-keeper-unlock` temporarily makes the selected identity usable by processes running in the current user's environment, including AI agents with shell access. Keep unlock periods short. The five-minute default is intentional.
+
+Never commit credentials, private keys, tokens, certificates, or real secret values.
 
 ## Agent context
 
