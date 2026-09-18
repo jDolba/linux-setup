@@ -29,6 +29,8 @@ assert_link "$developer_home/.local/bin/key-keeper-unlock" /repo/common/bin/key-
 assert_link "$developer_home/.local/bin/key-keeper-lock" /repo/common/bin/key-keeper-lock
 [[ -x /usr/local/libexec/key-keeper-agent-helper ]] || fail 'keyKeeper helper was not installed'
 [[ -f /etc/sudoers.d/key-keeper-agent-developer ]] || fail 'keyKeeper sudo policy was not installed'
+runuser -u developer -- ssh -G xemel.srv.omnicado.com | grep -Fx 'identityfile /var/lib/key-keeper/public/omnicado_xemel.pub' >/dev/null \
+    || fail 'xemel SSH host does not select its keyKeeper agent identity'
 [[ "$(grep -Fxc '# linux-setup: managed bash configuration' "$developer_home/.bashrc")" == 1 ]] || fail 'Bash marker was duplicated'
 [[ "$(grep -Fxc '# linux-setup: managed git configuration' "$developer_home/.gitconfig")" == 1 ]] || fail 'Git marker was duplicated'
 

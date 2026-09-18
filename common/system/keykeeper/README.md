@@ -10,8 +10,9 @@ invoking user's existing SSH agent with the native `ssh-add -t` lifetime, and
 never returns private-key bytes through output or a user-owned file. The helper
 does not provide a shell or arbitrary command execution as `keyKeeper`.
 
-The helper stores public-key metadata under `/var/lib/key-keeper/public/` only
-to identify managed agent identities for locking. SSH uses the temporary agent
-identity normally; it does not need an `IdentityFile` for the protected private
-key. Use `key-keeper-lock KEY-NAME` to remove that managed identity early, or
+The helper stores public-key metadata under `/var/lib/key-keeper/public/` to
+identify managed agent identities for locking and to select them from SSH
+configuration. An `IdentityFile` ending in `.pub` tells SSH to ask the agent
+for the matching identity; it does not give the normal user private-key access.
+Use `key-keeper-lock KEY-NAME` to remove that managed identity early, or
 `key-keeper-lock --all` to remove all recorded keyKeeper identities.
