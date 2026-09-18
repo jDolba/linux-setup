@@ -1,0 +1,3 @@
+# Laptop-specific baseline. Add selected desktop applications only when needed.
+vim
+xdg-utils

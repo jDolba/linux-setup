@@ -1,0 +1,17 @@
+# Local secrets and machine-specific overrides
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+id_*
+!*.example
+!*.template
+
+# Local test and editor files
+.docker/
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,4 @@
+# Shared non-sensitive SSH defaults. Add host-specific identities outside this file.
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 3

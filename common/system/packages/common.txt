@@ -1,0 +1,7 @@
+# One apt package per line. Keep this list suitable for every managed profile.
+bash-completion
+ca-certificates
+curl
+git
+openssh-client
+tmux

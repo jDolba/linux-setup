@@ -1,0 +1,7 @@
+# Copy settings for a real host into a private, untracked file when necessary.
+# Keep IdentityFile explicit and use IdentitiesOnly to prevent unintended key offers.
+Host example-host
+    HostName example.invalid
+    User deploy
+    IdentityFile ~/.ssh/id_example
+    IdentitiesOnly yes
