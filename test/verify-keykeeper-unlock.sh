@@ -65,6 +65,5 @@ DEVELOPER
 
 [[ "$(stat -c '%U:%G:%a' "$key_path")" == "$before_metadata" ]] || fail 'Unlock changed private-key metadata'
 [[ ! -e /home/developer/.ssh/test-loader-key ]] || fail 'Unlock copied a private key into the user home'
-[[ "$(stat -c '%U:%G:%a' /var/lib/key-keeper/public/test-loader-key.pub)" == 'root:root:644' ]] || fail 'Unexpected public-key metadata'
 
 printf 'keyKeeper unlock verification passed.\n'

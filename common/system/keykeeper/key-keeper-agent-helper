@@ -54,13 +54,13 @@ valid_name() {
     [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
 }
 
-public_path_for() { printf '%s/%s.pub' "$PUBLIC_DIRECTORY" "$1"; }
-
 lock_one() {
     local public_path="$1"
     # This removes only the exact public identity recorded by this helper.
     run_as_invoking_user /usr/bin/ssh-add -d "$public_path" >/dev/null 2>&1 || true
 }
+
+public_path_for() { printf '%s/%s.pub' "$PUBLIC_DIRECTORY" "$1"; }
 
 case "$operation" in
     unlock)
@@ -74,21 +74,21 @@ case "$operation" in
         key_mode="$(stat -c '%a' "$key_path")"
         (( (8#$key_mode & 077) == 0 )) || die "Key '$name' has unsafe permissions."
 
-        install -d -m 0755 -o root -g root "$PUBLIC_DIRECTORY"
-        public_path="$(public_path_for "$name")"
         temporary_public="$(mktemp)"
         trap 'rm -f "$temporary_public"' EXIT
         /usr/bin/ssh-keygen -y -f "$key_path" > "$temporary_public"
+        install -d -m 0755 -o root -g root "$PUBLIC_DIRECTORY"
+        public_path="$(public_path_for "$name")"
         install -m 0644 -o root -g root "$temporary_public" "$public_path"
 
         # Re-unlocking replaces this exact managed agent identity so its lifetime is renewed.
-        lock_one "$public_path"
+        lock_one "$temporary_public"
         # Keep the private key in an inherited root-open descriptor. ssh-add runs as the
         # invoking user and reads that descriptor as standard input; no key bytes reach
         # stdout or disk.
         exec 3<"$key_path"
         run_as_invoking_user /usr/bin/ssh-add -t "$((minutes * 60))" - <&3
-        fingerprint="$(/usr/bin/ssh-keygen -lf "$public_path" -E sha256 | awk '{print $2}')"
+        fingerprint="$(/usr/bin/ssh-keygen -lf "$temporary_public" -E sha256 | awk '{print $2}')"
         printf "SSH key '%s' unlocked for %s minutes.\n%s\n" "$name" "$minutes" "$fingerprint"
         ;;
     lock)

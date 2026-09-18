@@ -57,7 +57,7 @@ LOCKED
 
 Run `key-keeper-unlock KEY-NAME [MINUTES]`; the default is five minutes and the maximum is 1,440. The command asks sudo for an explicit privileged transition, validates the key name, and uses `ssh-add -t` with the selected user's existing `SSH_AUTH_SOCK`. It never changes private-key ownership or permissions, copies it into the user home, or emits its contents. A fixed root-owned helper has no shell or arbitrary-command mode as `keyKeeper`.
 
-Use `key-keeper-lock KEY-NAME` to remove one managed identity early, or `key-keeper-lock --all` to remove all managed identities while leaving unrelated agent identities alone. The helper retains root-managed public-key metadata solely to identify those managed identities. SSH configuration may use a generated `.pub` `IdentityFile` to select the matching agent identity; it never refers to a protected private-key path.
+Use `key-keeper-lock KEY-NAME` to remove one managed identity early, or `key-keeper-lock --all` to remove all keyKeeper identities while leaving unrelated agent identities alone. SSH configuration may use the corresponding public key in `~/.ssh` as an `.pub` `IdentityFile` to select the matching agent identity; it never refers to a protected private-key path.
 
 Sensitive identities are unavailable while locked. Running `key-keeper-unlock` temporarily makes the selected identity usable by processes running in the current user's environment, including AI agents with shell access. Keep unlock periods short. The five-minute default is intentional.
 
