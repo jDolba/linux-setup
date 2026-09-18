@@ -1,0 +1,8 @@
+services:
+  setup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /repo
+    volumes:
+      - ..:/repo:ro
