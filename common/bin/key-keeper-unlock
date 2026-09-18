@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Request a brief, explicit delegation of a keyKeeper identity to this SSH agent.
+set -Eeuo pipefail
+
+readonly HELPER=/usr/local/libexec/key-keeper-agent-helper
+readonly DEFAULT_MINUTES=5
+
+usage() { printf 'Usage: key-keeper-unlock KEY-NAME [MINUTES]\n' >&2; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+key_name="${1:-}"
+minutes="${2:-$DEFAULT_MINUTES}"
+[[ $# -le 2 ]] || { usage; exit 2; }
+[[ "$key_name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die 'Key name must contain only letters, numbers, dot, dash, or underscore.'
+[[ "$minutes" =~ ^[1-9][0-9]*$ ]] || die 'Minutes must be a positive integer.'
+[[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+
+exec sudo -- "$HELPER" unlock "$key_name" "$minutes" "$SSH_AUTH_SOCK"

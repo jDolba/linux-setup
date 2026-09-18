@@ -130,7 +130,28 @@ setup_keykeeper() {
     [[ -n "$keykeeper_home" ]] || die "Unable to determine keyKeeper home directory."
     ensure_directory "$keykeeper_home" 0700 keyKeeper
     ensure_directory "$keykeeper_home/.ssh" 0700 keyKeeper
-    log "Prepared keyKeeper home and .ssh directory."
+    ensure_directory "$keykeeper_home/.ssh/keys" 0700 keyKeeper
+    log "Prepared keyKeeper home and key directory."
+}
+
+install_keykeeper_helper() {
+    local helper_source="$COMMON_DIR/system/keykeeper/key-keeper-agent-helper"
+    local helper_destination=/usr/local/libexec/key-keeper-agent-helper
+    local sudoers_destination="/etc/sudoers.d/key-keeper-agent-$TARGET_USER"
+    local temporary_sudoers
+
+    [[ -x "$helper_source" ]] || die "Missing keyKeeper helper: $helper_source"
+    run install -D -m 0755 -o root -g root "$helper_source" "$helper_destination"
+    if "$DRY_RUN"; then
+        log "Would install restricted sudo policy for keyKeeper helper."
+        return
+    fi
+    temporary_sudoers="$(mktemp)"
+    printf '%s ALL=(root) %s\n' "$TARGET_USER" "$helper_destination" > "$temporary_sudoers"
+    visudo -cf "$temporary_sudoers" >/dev/null || die 'Generated keyKeeper sudo policy is invalid.'
+    install -m 0440 -o root -g root "$temporary_sudoers" "$sudoers_destination"
+    rm -f "$temporary_sudoers"
+    log "Installed restricted sudo policy for keyKeeper helper."
 }
 
 link_bin_directory() {
@@ -209,6 +230,7 @@ main() {
     log "Applying common setup and profile '$PROFILE' for user '$TARGET_USER'."
     install_packages
     setup_keykeeper
+    install_keykeeper_helper
     apply_common_configuration
     apply_profile
     log "Bootstrap completed for profile '$PROFILE'."

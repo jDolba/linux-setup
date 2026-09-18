@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Root-only fixed-purpose helper. It never writes private key bytes to output.
+set -Eeuo pipefail
+
+readonly KEYKEEPER_USER=keyKeeper
+readonly KEY_DIRECTORY=/home/keyKeeper/.ssh/keys
+readonly PUBLIC_DIRECTORY=/var/lib/key-keeper/public
+readonly MAX_MINUTES=1440
+
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+[[ "$EUID" -eq 0 ]] || die 'This helper must be run through sudo.'
+[[ -n "${SUDO_UID:-}" && "$SUDO_UID" =~ ^[0-9]+$ ]] || die 'Unable to determine invoking user.'
+invoking_uid="$SUDO_UID"
+invoking_passwd="$(getent passwd "$invoking_uid")"
+[[ -n "$invoking_passwd" ]] || die 'Unable to determine invoking user.'
+invoking_gid="$(cut -d: -f4 <<<"$invoking_passwd")"
+
+operation="${1:-}"
+[[ "$operation" == unlock || "$operation" == lock ]] || die 'Invalid helper operation.'
+case "$operation" in
+    unlock)
+        [[ $# -eq 4 ]] || die 'Invalid helper invocation.'
+        name="$2"
+        minutes="$3"
+        agent_socket="$4"
+        ;;
+    lock)
+        [[ $# -eq 3 ]] || die 'Invalid helper invocation.'
+        name="$2"
+        agent_socket="$3"
+        ;;
+esac
+[[ -n "$agent_socket" && -S "$agent_socket" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+[[ "$(stat -c '%u' "$agent_socket")" == "$invoking_uid" ]] || die 'SSH agent does not belong to the invoking user.'
+
+run_as_invoking_user() {
+    setpriv --reuid "$invoking_uid" --regid "$invoking_gid" --init-groups \
+        env "SSH_AUTH_SOCK=$agent_socket" "$@"
+}
+
+agent_is_usable() {
+    local status
+    set +e
+    run_as_invoking_user /usr/bin/ssh-add -l >/dev/null 2>&1
+    status=$?
+    set -e
+    [[ "$status" -eq 0 || "$status" -eq 1 ]]
+}
+
+agent_is_usable || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'
+
+valid_name() {
+    [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+}
+
+public_path_for() { printf '%s/%s.pub' "$PUBLIC_DIRECTORY" "$1"; }
+
+lock_one() {
+    local public_path="$1"
+    # This removes only the exact public identity recorded by this helper.
+    run_as_invoking_user /usr/bin/ssh-add -d "$public_path" >/dev/null 2>&1 || true
+}
+
+case "$operation" in
+    unlock)
+        valid_name "$name" || die 'Invalid key name.'
+        [[ "$name" != *..* ]] || die 'Invalid key name.'
+        [[ "$minutes" =~ ^[1-9][0-9]*$ ]] || die 'Minutes must be a positive integer.'
+        ((minutes <= MAX_MINUTES)) || die "Minutes must not exceed $MAX_MINUTES."
+        key_path="$KEY_DIRECTORY/$name"
+        [[ -f "$key_path" && ! -L "$key_path" ]] || die "Key '$name' does not exist in keyKeeper."
+        [[ "$(stat -c '%U:%G' "$key_path")" == "$KEYKEEPER_USER:$KEYKEEPER_USER" ]] || die "Key '$name' has unsafe ownership."
+        key_mode="$(stat -c '%a' "$key_path")"
+        (( (8#$key_mode & 077) == 0 )) || die "Key '$name' has unsafe permissions."
+
+        install -d -m 0755 -o root -g root "$PUBLIC_DIRECTORY"
+        public_path="$(public_path_for "$name")"
+        temporary_public="$(mktemp)"
+        trap 'rm -f "$temporary_public"' EXIT
+        /usr/bin/ssh-keygen -y -f "$key_path" > "$temporary_public"
+        install -m 0644 -o root -g root "$temporary_public" "$public_path"
+
+        # Re-unlocking replaces this exact managed agent identity so its lifetime is renewed.
+        lock_one "$public_path"
+        # Keep the private key in an inherited root-open descriptor. ssh-add runs as the
+        # invoking user and reads that descriptor as standard input; no key bytes reach
+        # stdout or disk.
+        exec 3<"$key_path"
+        run_as_invoking_user /usr/bin/ssh-add -t "$((minutes * 60))" - <&3
+        fingerprint="$(/usr/bin/ssh-keygen -lf "$public_path" -E sha256 | awk '{print $2}')"
+        printf "SSH key '%s' unlocked for %s minutes.\n%s\n" "$name" "$minutes" "$fingerprint"
+        ;;
+    lock)
+        if [[ "$name" == --all ]]; then
+            [[ -d "$PUBLIC_DIRECTORY" ]] || { printf 'No keyKeeper identities are recorded for this user.\n'; exit 0; }
+            shopt -s nullglob
+            for public_path in "$PUBLIC_DIRECTORY"/*.pub; do
+                lock_one "$public_path"
+            done
+            printf 'Removed all keyKeeper identities from this SSH agent.\n'
+            exit 0
+        fi
+        valid_name "$name" || die 'Invalid key name.'
+        [[ "$name" != *..* ]] || die 'Invalid key name.'
+        public_path="$(public_path_for "$name")"
+        [[ -f "$public_path" && ! -L "$public_path" ]] || die "Key '$name' is not known to keyKeeper."
+        [[ "$(stat -c '%U:%G:%a' "$public_path")" == 'root:root:644' ]] || die "Key '$name' has unsafe public-key metadata."
+        lock_one "$public_path"
+        printf "SSH key '%s' removed from this SSH agent.\n" "$name"
+        ;;
+esac
