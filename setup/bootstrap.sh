@@ -135,7 +135,7 @@ setup_keykeeper() {
 
 link_bin_directory() {
     local bin_dir="$1" command
-    [[ -d "$bin_dir" ]] || return
+    [[ -d "$bin_dir" ]] || return 0
     while IFS= read -r -d '' command; do
         [[ -x "$command" ]] || continue
         managed_link "$command" "$TARGET_HOME/.local/bin/$(basename "$command")" "$TARGET_USER"
