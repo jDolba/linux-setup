@@ -33,5 +33,11 @@ runuser -u developer -- ssh -G xemel.srv.omnicado.com | grep -Fx 'identityfile ~
     || fail 'xemel SSH host does not select its keyKeeper agent identity'
 [[ "$(grep -Fxc '# linux-setup: managed bash configuration' "$developer_home/.bashrc")" == 1 ]] || fail 'Bash marker was duplicated'
 [[ "$(grep -Fxc '# linux-setup: managed git configuration' "$developer_home/.gitconfig")" == 1 ]] || fail 'Git marker was duplicated'
+runuser -u developer -- bash --noprofile --norc -ic \
+    'source ~/.bashrc; [[ "$(alias dcup)" == "alias dcup='\''docker compose down && docker compose up -d'\''" ]]' \
+    >/dev/null 2>&1 || fail 'dcup Bash alias was not configured'
+runuser -u developer -- bash --noprofile --norc -ic \
+    'source ~/.bashrc; [[ "$(alias gitfr)" == "alias gitfr='\''git fetch --all --prune && git rebase -i origin/main'\''" ]]' \
+    >/dev/null 2>&1 || fail 'gitfr Bash alias was not configured'
 
 printf 'Bootstrap verification passed for profile %s.\n' "$profile"
