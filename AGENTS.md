@@ -1,5 +1,7 @@
 # Agent context
 
+Skill can be found in `.ai/skills`
+
 This repository defines repeatable Ubuntu setup for managed machines. `common/` holds shared packages, configuration, and helpers; `profiles/<name>/` adds machine-specific packages or setup.
 
 Keep configuration and scripts versioned here. Never commit credentials, private keys, tokens, certificates, or real machine-specific secrets. Use examples or templates instead.
