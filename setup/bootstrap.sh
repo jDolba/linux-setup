@@ -9,6 +9,7 @@ readonly PROFILES_DIR="$REPO_ROOT/profiles"
 DRY_RUN=false
 TARGET_USER="${BOOTSTRAP_USER:-${SUDO_USER:-${USER}}}"
 TARGET_HOME=""
+PROFILE=""
 
 log() { printf '%s\n' "==> $*"; }
 warn() { printf '%s\n' "WARNING: $*" >&2; }
@@ -186,8 +187,10 @@ apply_profile() {
     local profile_ssh_config="$PROFILE_DIR/config/ssh/config"
     if [[ -f "$profile_ssh_config" ]]; then
         managed_link "$profile_ssh_config" "$TARGET_HOME/.ssh/config" "$TARGET_USER"
-    fi
-    if [[ ! -f "$profile_ssh_config" ]] || [[ ! -L "$TARGET_HOME/.ssh/config" ]] || [[ "$(readlink -f "$TARGET_HOME/.ssh/config")" != "$(readlink -f "$profile_ssh_config")" ]]; then
+        if [[ ! -L "$TARGET_HOME/.ssh/config" ]] || [[ "$(readlink -f "$TARGET_HOME/.ssh/config")" != "$(readlink -f "$profile_ssh_config")" ]]; then
+            warn "Skipping managed SSH configuration because $TARGET_HOME/.ssh/config is unmanaged."
+        fi
+    else
         append_once "$TARGET_HOME/.ssh/config" "$TARGET_USER" \
             '# linux-setup: managed SSH configuration' \
             'Include ~/.ssh/config.d/*.conf'
