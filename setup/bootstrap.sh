@@ -156,15 +156,21 @@ apply_common_configuration() {
 
     ensure_directory "$TARGET_HOME/.ssh" 0700 "$TARGET_USER"
     managed_link "$COMMON_DIR/config/ssh/config" "$TARGET_HOME/.ssh/config.d/linux-setup.conf" "$TARGET_USER"
-    append_once "$TARGET_HOME/.ssh/config" "$TARGET_USER" \
-        '# linux-setup: managed SSH configuration' \
-        'Include ~/.ssh/config.d/*.conf'
 
     managed_link "$COMMON_DIR/config/tmux/tmux.conf" "$TARGET_HOME/.tmux.conf" "$TARGET_USER"
     link_bin_directory "$COMMON_DIR/bin"
 }
 
 apply_profile() {
+    local profile_ssh_config="$PROFILE_DIR/config/ssh/config"
+    if [[ -f "$profile_ssh_config" ]]; then
+        managed_link "$profile_ssh_config" "$TARGET_HOME/.ssh/config" "$TARGET_USER"
+    fi
+    if [[ ! -f "$profile_ssh_config" ]] || [[ ! -L "$TARGET_HOME/.ssh/config" ]] || [[ "$(readlink -f "$TARGET_HOME/.ssh/config")" != "$(readlink -f "$profile_ssh_config")" ]]; then
+        append_once "$TARGET_HOME/.ssh/config" "$TARGET_USER" \
+            '# linux-setup: managed SSH configuration' \
+            'Include ~/.ssh/config.d/*.conf'
+    fi
     link_bin_directory "$PROFILE_DIR/bin"
     if [[ -x "$PROFILE_DIR/setup.sh" ]]; then
         log "Running profile setup: $PROFILE"

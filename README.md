@@ -28,7 +28,7 @@ The only current profile is `laptop`. Add a future machine by creating `profiles
 - `test/` contains the isolated Ubuntu playground.
 - `skills/` records repeatable repository procedures.
 
-Managed configuration is symlinked from the checkout where appropriate. Existing unmanaged files are reported and left unchanged. Bash and SSH configuration are extended with a single marked entry instead of being replaced.
+Managed configuration is symlinked from the checkout where appropriate. The laptop profile owns the complete managed SSH config, including the copied laptop host aliases. Existing unmanaged files are reported and left unchanged. Bash configuration is extended with one marked source entry instead of being replaced.
 
 ## Testing
 
@@ -44,6 +44,8 @@ make test-bootstrap PROFILE=laptop
 ## Security model
 
 Coding agents and everyday development run as the normal user. Sensitive SSH private keys belong only to `keyKeeper`, whose home and `.ssh` directory are mode `0700`. Bootstrap creates the account structure but never creates, copies, or versions keys. Host-specific identities belong in private untracked files; see `common/config/ssh/config.example` for the explicit-identity pattern.
+
+Run `keykeeper-load-key <key-name> [minutes]` to add `/home/keyKeeper/.ssh/<key-name>` to the current user's existing SSH agent for a limited time; the default is five minutes and the maximum is 1,440. The helper uses normal sudo authentication, creates only a public-key companion under `~/.ssh/linux-setup-identities/`, and streams the private key directly into `ssh-add` without writing it beneath the normal user's home. After expiry, SSH cannot authenticate with that identity unless it is loaded again.
 
 `keykeeper-ssh` is an explicit helper that invokes SSH as `keyKeeper` through normal sudo authentication. There is no passwordless sudo policy or broad home-directory sharing. Never commit credentials, private keys, tokens, certificates, or real secret values.
 

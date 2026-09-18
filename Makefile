@@ -24,4 +24,4 @@ test-shell:
 
 test-bootstrap:
 	@test -n "$(PROFILE)" || { printf '%s\n' 'PROFILE is required, for example: make test-bootstrap PROFILE=laptop' >&2; exit 2; }
-	docker compose -f test/docker-compose.yml run --rm setup bash -lc 'BOOTSTRAP_USER=developer ./setup/bootstrap.sh "$(PROFILE)" && BOOTSTRAP_USER=developer ./setup/bootstrap.sh "$(PROFILE)" && ./test/verify-bootstrap.sh "$(PROFILE)"'
+	docker compose -f test/docker-compose.yml run --rm setup bash -lc 'BOOTSTRAP_USER=developer ./setup/bootstrap.sh "$(PROFILE)" && BOOTSTRAP_USER=developer ./setup/bootstrap.sh "$(PROFILE)" && ./test/verify-bootstrap.sh "$(PROFILE)" && ./test/verify-keykeeper-loader.sh'

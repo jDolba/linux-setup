@@ -1,0 +1,24 @@
+# Managed laptop SSH configuration. Private keys remain only in keyKeeper.
+# keykeeper-load-key writes matching public identities under ~/.ssh/linux-setup-identities/.
+Include ~/.ssh/config.d/*.conf
+
+Host xemel.srv.omnicado.com
+    User root
+    IdentityFile ~/.ssh/linux-setup-identities/omnicado_xemel_ed25519.pub
+    IdentitiesOnly yes
+
+Host gitlabcom-moravio
+    HostName gitlab.com
+    IdentityFile ~/.ssh/linux-setup-identities/gitlabcom_moravio_ed25519.pub
+    IdentitiesOnly yes
+
+Host hetzner-dolba-1
+    HostName 78.47.21.162
+    User deploy
+    IdentityFile ~/.ssh/linux-setup-identities/hetzner-dolba-1.pub
+    IdentitiesOnly yes
+
+# Only named identities may be offered. With no loaded identity, authentication fails.
+Host *
+    IdentitiesOnly yes
+    BatchMode yes
