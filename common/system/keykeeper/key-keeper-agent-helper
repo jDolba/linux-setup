@@ -123,7 +123,10 @@ case "$operation" in
         exec 3<"$key_path"
         run_as_invoking_user /usr/bin/ssh-add -t "$((minutes * 60))" - <&3
         fingerprint="$(/usr/bin/ssh-keygen -lf "$temporary_public" -E sha256 | awk '{print $2}')"
-        printf "SSH key '%s' unlocked for %s minutes.\n%s\n" "$name" "$minutes" "$fingerprint"
+        allowed_at="$(/usr/bin/date --iso-8601=seconds)"
+        unlocked_until="$(/usr/bin/date --date "+$minutes minutes" --iso-8601=seconds)"
+        printf "SSH key '%s' unlocked for %s minutes.\nAllowed at: %s\nUnlocked until: %s\n%s\n" \
+            "$name" "$minutes" "$allowed_at" "$unlocked_until" "$fingerprint"
         ;;
     lock)
         [[ -n "$agent_socket" && -S "$agent_socket" ]] || die 'No SSH agent available. Start or connect to an ssh-agent and retry.'

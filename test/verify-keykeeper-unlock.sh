@@ -55,6 +55,8 @@ unrelated="$(ssh-add -l | awk 'NR == 1 { print $2 }')"
 default_output="$(/home/developer/.local/bin/key-keeper-unlock test-loader-key 2>&1)"
 grep -F 'unlocked for 5 minutes' <<<"$default_output"
 grep -F 'Lifetime set to 300 seconds' <<<"$default_output"
+grep -Eq '^Allowed at: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}$' <<<"$default_output"
+grep -Eq '^Unlocked until: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}$' <<<"$default_output"
 test "$(ssh-add -l | wc -l)" -eq 1
 SSH_AUTH_SOCK="$SHARED_AGENT" ssh-add -l | grep -v -F "$unrelated" >/dev/null
 
