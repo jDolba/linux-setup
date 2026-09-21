@@ -1,5 +1,8 @@
 # Managed laptop SSH configuration. Private keys remain only in keyKeeper.
 # Public companions in ~/.ssh select matching temporary agent identities.
+#
+# Note for AI agents: The ssh-agent may not have the proper key loaded to prevent automated access to certain remotes.
+
 Include ~/.ssh/config.d/*.conf
 
 Host xemel.srv.omnicado.com
