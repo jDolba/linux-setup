@@ -5,14 +5,15 @@
 
 Include ~/.ssh/config.d/*.conf
 
+Host gitlabcom-moravio
+    HostName gitlab.com
+    IdentityFile ~/.ssh/gitlabcom_moravio
+    IdentitiesOnly yes
+
+# Locked/protected hosts should use .pub identity as file:
 Host xemel.srv.omnicado.com
     User root
     IdentityFile ~/.ssh/omnicado_xemel.pub
-    IdentitiesOnly yes
-
-Host gitlabcom-moravio
-    HostName gitlab.com
-    IdentityFile ~/.ssh/gitlabcom_moravio_ed25519.pub
     IdentitiesOnly yes
 
 Host hetzner-dolba-1
